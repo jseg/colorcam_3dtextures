@@ -8,7 +8,6 @@ int cols = 20;
 PVector[] org = new PVector[((rows+1)*(cols+1))]; //vector to cell origin
 PShape cell; //textured quad
 PImage mask;
-PImage tex;
 Capture cam;
 AniSequence seq_x;
 AniSequence seq_y;
@@ -25,7 +24,7 @@ float ry = 0; //roation about the y axis
 float ry_t = 0; //target rotation about the y axis
 float zDis_y = 0; //z displacement while flipping about y
 float rx = 0; //roation about the x axis
-float rx_t = 0; //target rotaaaaaaaaaaaaaaation about the x axis
+float rx_t = 0; //target rotation about the x axis
 float zDis_x = 0; //z displacement while flipping about x
 float zDis_d = 0; //z displacement while flipping diadonal tiles
 float slide = 1;
@@ -33,11 +32,12 @@ float slideTarget = slide*height;
 float slidePos = slideTarget;
 int isOn = 0;
 float root2 = sqrt(2);
-float aniSpeed = .75;
+float aniSpeed = 80;
 
 void setup(){
   size(1280,720,P3D);
   textureMode(NORMAL);
+  Ani.setDefaultTimeMode(Ani.FRAMES);
   noStroke();
   mask = loadImage("mask.png");
   camSetup();
@@ -45,25 +45,20 @@ void setup(){
   Ani.init(this);
   slideTarget = slide*height;
   slidePos = slideTarget;
-  //frameRate(60);
-  //smooth(2);
+  frameRate(100);
   }
 
 void draw(){
   background(0);
-  if (cam.available() == true) {
-    frame();
-  }
   if(isOn == 1){
-     //scaleOrg();
       zdepth();
+      updateCell();
       for (int i=0; i<rows+1; i++){
       for (int j=0; j<cols+1; j++){
          int n=(i*(cols+1))+j;
          PVector c = new PVector(org[n].x,org[n].y,org[n].z);
-         c.mult(s*tex.height);
-         //if(((abs(org[n].x)-(0.5*s*tex.width))<(width/2))&&((abs(org[n].y)-(0.5*s*tex.height))<(height/2))){
-         if(((abs(c.x)-(0.5*s*tex.width))<(width/2))&&((abs(c.y)-(0.5*s*tex.height))<(height/2))){
+         c.mult(s*cam.height);
+         if(((abs(c.x)-(0.5*s*cam.width))<(width/2))&&((abs(c.y)-(0.5*s*cam.height))<(height/2))){
            pushMatrix();
              translate(width/2,height/2,0);
              if(j%2>0){
@@ -106,34 +101,28 @@ void draw(){
 }
 
 void zdepth(){
-  zDis_y = ((-s*tex.height/2)*sin(ry));
-  zDis_x = (s*tex.height/2)*sin(rx);
-  zDis_d = ((s*tex.height/2)*sin(rx))+(zDis_y*cos(rx));
+  zDis_y = ((-s*cam.height/2)*sin(ry));
+  zDis_x = (s*cam.height/2)*sin(rx);
+  zDis_d = ((s*cam.height/2)*sin(rx))+(zDis_y*cos(rx));
   zDis_y = -(abs(zDis_y));
   zDis_x = -(abs(zDis_x));
   zDis_d = zDis_y+zDis_x;
 }
 
-void scaleOrg(){
-  for (int i=0; i<org.length; i++){
-    org[i].mult(s*tex.height);
-  }
+void captureEvent(Capture cam){
+  cam.read();
+   isOn = 1;
 }
 
-
-void frame(){
-  cam.read();
-  tex = createImage(cam.height, cam.height, RGB);
-  tex = cam.get(((cam.width/2)-(cam.height/2)),0,cam.height,cam.height);
+void updateCell(){
   cell = createShape();
   cell.beginShape();
-  cell.texture(tex);
-  cell.vertex((-tex.width*s/2),(-tex.height*s/2),0,0);
-  cell.vertex((tex.width*s/2),(-tex.height*s/2),1,0);
-  cell.vertex((tex.width*s/2),(tex.height*s/2),1,1);
-  cell.vertex((-tex.width*s/2),(tex.height*s/2),0,1);
+  cell.texture(cam);
+  cell.vertex((-cam.height*s/2),(-cam.height*s/2),.28125,0);
+  cell.vertex((cam.height*s/2),(-cam.height*s/2),.84375,0);
+  cell.vertex((cam.height*s/2),(cam.height*s/2),.84375,1);
+  cell.vertex((-cam.height*s/2),(cam.height*s/2),.28125,1);
   cell.endShape(CLOSE);
-  isOn = 1;
 }
 
 void keyPressed() {
@@ -143,28 +132,28 @@ void keyPressed() {
       if(s_t>1.0){
         s_t = 1.0;
       }
-      Ani.to(this, 1.0, "s",s_t);
+      Ani.to(this, aniSpeed, "s",s_t);
       }
     else if (keyCode == DOWN) {
      s_t *= .85;
       if(s_t<0.05){
         s_t = 0.05;
       }
-      Ani.to(this, 1.0, "s",s_t);
+      Ani.to(this, aniSpeed, "s",s_t);
     }
     else if (keyCode == LEFT) {
       if(slide > -2){
         slide--;
       }
       slideTarget = slide*height;
-      Ani.to(this,1.5,"slidePos",slideTarget);
+      Ani.to(this,1.5*aniSpeed,"slidePos",slideTarget);
     }
     else if (keyCode == RIGHT) {
       if(slide < 1){
         slide++;
       }
       slideTarget = slide*height;
-      Ani.to(this,1.5,"slidePos",slideTarget);
+      Ani.to(this,1.5*aniSpeed,"slidePos",slideTarget);
     }
   }
   else if (key == 'a'){ //spin right tiles
@@ -182,34 +171,10 @@ void keyPressed() {
   else if (key == 'd'){ //flip right tiles about y
     ry_t += PI;
     Ani.to(this,aniSpeed,"ry",ry_t,Ani.EXPO_IN_OUT);
-    //seq_y = new AniSequence(this);
-    //seq_y.beginSequence();
-    //seq_y.add(Ani.to(this, 0.5, "zDis_y", -s*tex.height/2,Ani.SINE_OUT));
-    //seq_y.add(Ani.to(this, 0.5, "zDis_y", 0,Ani.SINE_IN));
-    //seq_y.endSequence();
-    //seq_y.start();
-    //seq_d = new AniSequence(this);
-    //seq_d.beginSequence();
-    //seq_d.add(Ani.to(this, 0.5, "zDis_d", -s*tex.height/2,Ani.SINE_OUT));
-    //seq_d.add(Ani.to(this, 0.5, "zDis_d", 0,Ani.SINE_IN));
-    //seq_d.endSequence();
-    //seq_d.start();
   }
   else if (key == 'f'){
     rx_t += PI;
     Ani.to(this,aniSpeed,"rx",rx_t,Ani.EXPO_IN_OUT);
-    //seq_x = new AniSequence(this);
-    //seq_x.beginSequence();
-    //seq_x.add(Ani.to(this, 0.5, "zDis_x", -s*root2*tex.height/2,Ani.SINE_OUT));
-    //seq_x.add(Ani.to(this, 0.5, "zDis_x", 0,Ani.SINE_IN));
-    //seq_x.endSequence();
-    //seq_x.start();
-    //seq_d = new AniSequence(this);
-    //seq_d.beginSequence();
-    //seq_d.add(Ani.to(this, 0.5, "zDis_d", -s*root2*tex.height/2,Ani.SINE_OUT));
-    //seq_d.add(Ani.to(this, 0.5, "zDis_d", 0,Ani.SINE_IN));
-    //seq_d.endSequence();
-    //seq_d.start();
   }
   else if (key == 'g'){ //reset rotations
     rrz_t = 0;
@@ -222,24 +187,6 @@ void keyPressed() {
     Ani.to(this,aniSpeed*2,"ry",ry_t,Ani.EXPO_IN_OUT);
     rx_t = 0;
     Ani.to(this,aniSpeed*2,"rx",rx_t,Ani.EXPO_IN_OUT);
-    //seq_y = new AniSequence(this);
-    //seq_y.beginSequence();
-    //seq_y.add(Ani.to(this, 0.5, "zDis_y", -s*root2*tex.height/2,Ani.SINE_OUT));
-    //seq_y.add(Ani.to(this, 0.5, "zDis_y", 0,Ani.SINE_IN));
-    //seq_y.endSequence();
-    //seq_y.start();
-    //seq_x = new AniSequence(this);
-    //seq_x.beginSequence();
-    //seq_x.add(Ani.to(this, 0.5, "zDis_x", -s*root2*tex.height/2,Ani.SINE_OUT));
-    //seq_x.add(Ani.to(this, 0.5, "zDis_x", 0,Ani.SINE_IN));
-    //seq_x.endSequence();
-    //seq_x.start();
-    //seq_d = new AniSequence(this);
-    //seq_d.beginSequence();
-    //seq_d.add(Ani.to(this, 0.5, "zDis_d", -s*root2*tex.height/2,Ani.SINE_OUT));
-    //seq_d.add(Ani.to(this, 0.5, "zDis_d", 0,Ani.SINE_IN));
-    //seq_d.endSequence();
-    //seq_d.start();
   }
   
 }
@@ -260,11 +207,8 @@ void camSetup(){
     printArray(cameras);
     // The camera can be initialized directly using an element
     // from the array returned by list():
-    //cam = new Capture(this, cameras[15]);
-    cam = new Capture(this, width, height);
-    // Or, the settings can be defined based on the text in the list
-    //cam = new Capture(this, 640, 480, "Built-in iSight", 30);  
-    // Start capturing the images from the camera
+    cam = new Capture(this, cameras[0]);
+    //cam = new Capture(this, width, height);
     cam.start();
   }
 }
@@ -274,10 +218,6 @@ void origins(){
   for (int i = -rows/2; i<rows/2+1; i++){
     for (int j = -cols/2; j<cols/2+1; j++){
      org[index] = new PVector(i*1.0,j*1.0,0.0); 
-     //println(org[index]);
-     //println(org.length);
-    // PVector c = new PVector(org[index].x,org[index].y,org[index].z);
-    // println(c);
      index++;
     }
   }
